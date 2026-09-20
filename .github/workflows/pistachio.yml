@@ -57,4 +57,20 @@ jobs:
 
       - name: pistachio apply
         if: github.event_name == 'push'
-        run: pista apply *.sql
+        run: pista apply *.sql | tee "${RUNNER_TEMP}/apply.sql"
+
+      # マージコミットから元の PR を引いて結果を書き込む。
+      # main への直接 push には PR が無いので、その場合は何もしない。
+      - name: Comment apply result
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pr=$(gh api "/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0].number // empty')
+          [ -n "$pr" ] || exit 0
+          {
+            echo 'merged'
+            echo '```sql'
+            cat "${RUNNER_TEMP}/apply.sql"
+            echo '```'
+          } | gh pr comment "$pr" --body-file -
