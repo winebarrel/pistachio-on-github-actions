@@ -32,7 +32,7 @@ resource "aws_codebuild_project" "runner" {
 
   environment {
     compute_type = "BUILD_GENERAL1_SMALL"
-    image        = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+    image        = "aws/codebuild/standard:8.0"
     type         = "LINUX_CONTAINER"
 
     # docker build などを動かすなら true

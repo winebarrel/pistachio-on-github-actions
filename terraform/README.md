@@ -23,7 +23,7 @@ GitHub への接続は PAT ではなく **GitHub App (AWS CodeConnections)** を
 | リージョン | `ap-northeast-1` | `terraform.tf` |
 | プロジェクト名 | `gha-runner` | `main.tf`, `iam.tf` |
 | 対象リポジトリ | `winebarrel/pistachio-on-github-actions` | `main.tf` の `source.location` |
-| イメージ | `amazonlinux2-x86_64-standard:5.0` / `BUILD_GENERAL1_SMALL` | `main.tf` |
+| イメージ | `aws/codebuild/standard:8.0` (Ubuntu) / `BUILD_GENERAL1_SMALL` | `main.tf` |
 
 ## 使い方
 
@@ -75,7 +75,15 @@ apply の途中で 1 回だけ手作業が入る。`aws_codeconnections_connecti
 
 - ラベル末尾でジョブごとに上書きできる:
   `image:arm-3.0` / `instance-size:small` / `fleet:myFleet` / `buildspec-override:true`
-- Lambda コンピューティング (`BUILD_LAMBDA_1GB` + `LINUX_LAMBDA_CONTAINER`) は起動が速く安いが、
-  Docker (`privileged_mode`) が使えないなど制約あり。
+- Lambda コンピューティング (`BUILD_LAMBDA_1GB` + `LINUX_LAMBDA_CONTAINER`) は速い。
+  hello world で実測したところ、ジョブ実行時間が 21 秒 → 10 秒になった
+  (キュー投入からジョブ開始までは 25 秒 → 29 秒で、ここは変わらない)。
+  ワークスペースは `/tmp` 配下に置かれるので、`/tmp` 以外に書けない制約は実質問題にならず、
+  ファイル書き込みも JavaScript action も普通に動く。
+  ただし 15 分上限 / Docker 不可 / キャッシュ不可 / VPC 不可 / root 権限が要るツール不可。
+  イメージは runtime 別のものしかなく (nodejs, python, corretto, go, ruby, dotnet)、plain は無い。
+- ARM にする場合は `type = "ARM_CONTAINER"` +
+  `aws/codebuild/amazonlinux-aarch64-standard:4.0`。ARM の curated イメージは
+  Amazon Linux のみで Ubuntu 版が無いため、`standard:8.0` とは両立しない。
 - ウォームプールが欲しければ Reserved capacity fleet (`aws_codebuild_fleet`) を作って
   `environment.fleet` で紐付ける。
