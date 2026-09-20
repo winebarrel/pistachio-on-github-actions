@@ -14,4 +14,6 @@ ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_author_id_fkey FOREIGN 
 ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
 
 CREATE TRIGGER comments_notify AFTER INSERT ON comments FOR EACH ROW EXECUTE FUNCTION notify_comment();
-CREATE TRIGGER comments_set_updated_at BEFORE UPDATE ON comments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+ALTER TABLE public.comments DISABLE TRIGGER comments_notify;
+CREATE TRIGGER comments_set_updated_at BEFORE INSERT OR UPDATE ON comments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+COMMENT ON TABLE public.comments IS 'Reader comments on a post';
