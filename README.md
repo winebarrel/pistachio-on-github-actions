@@ -1,5 +1,7 @@
 # pistachio on GitHub Actions
 
+[![pistachio](https://github.com/winebarrel/pistachio-on-github-actions/actions/workflows/pistachio.yml/badge.svg)](https://github.com/winebarrel/pistachio-on-github-actions/actions/workflows/pistachio.yml)
+
 A demo of [pistachio](https://github.com/winebarrel/pistachio) running in CI: a pull
 request shows the schema diff, merging it applies the diff to a real PostgreSQL
 database.
