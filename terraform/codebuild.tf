@@ -66,6 +66,20 @@ resource "aws_codebuild_project" "runner" {
       value = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password"
       type  = "SECRETS_MANAGER"
     }
+
+    # qrev takes one DSN. It has no separate password option, but pgx falls
+    # back to PGPASSWORD for what the DSN leaves out, so the password stays
+    # in Secrets Manager rather than in the DSN.
+    environment_variable {
+      name  = "QREV_DSN"
+      value = "postgres://${aws_db_instance.postgres.username}@${aws_db_instance.postgres.endpoint}/${aws_db_instance.postgres.db_name}"
+    }
+
+    environment_variable {
+      name  = "PGPASSWORD"
+      value = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password"
+      type  = "SECRETS_MANAGER"
+    }
   }
 
   source {

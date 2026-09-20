@@ -12,13 +12,16 @@ instance in its private subnets.
 
 ## How it works
 
-The schema lives in `tables/`, one SQL file per object.
+The schema lives in `tables/`, one SQL file per object. Data migrations live in
+`data/`, one timestamped file each.
 
 ```
 tables/
   users.sql  posts.sql  comments.sql  tags.sql  post_tags.sql  ...
   post_status.sql  social_links.sql  email_address.sql  post_ref_seq.sql
   set_updated_at.sql  notify_comment.sql  slugify.sql  ...
+data/
+  20260920071958_initial_data.sql
 ```
 
 Each table's indexes, foreign keys, triggers, RLS policies and comments live in
@@ -28,13 +31,23 @@ that table's file.
 
 | Event | What runs | Where the output goes |
 | --- | --- | --- |
-| Pull request to `main` | `pista plan` | A comment on the pull request, via [lastcmt](https://github.com/winebarrel/lastcmt), which minimizes its own earlier comments |
-| Push to `main` | `pista apply` | A comment on the pull request the merge commit came from, via `gh pr comment` |
+| Pull request to `main` | `pista plan`, then `qrev plan` | Two comments on the pull request, via [lastcmt](https://github.com/winebarrel/lastcmt) under separate keys so each one only minimizes its own earlier posts |
+| Push to `main` | `pista apply`, then `qrev apply` | One comment on the pull request the merge commit came from, via `gh pr comment` |
 
-Both read `PISTA_CONN_STR` and `PISTA_PASSWORD` from the CodeBuild project rather
-than from GitHub secrets. `PISTA_MANAGE_ROUTINE` is set in the workflow so that
-functions and procedures are managed too; without it the triggers in
-`comments.sql` would point at functions nobody owns.
+[qrev](https://github.com/winebarrel/qrev) keeps a history table of the files it
+has run, so a data migration is applied once and skipped on every run after
+that. It runs after pistachio, since the data depends on the schema.
+
+Both read their connection settings from the CodeBuild project rather than from
+GitHub secrets: `PISTA_CONN_STR` and `PISTA_PASSWORD` for pistachio, `QREV_DSN`
+and `PGPASSWORD` for qrev. qrev takes a single DSN and has no separate password
+option, so the password reaches it through `PGPASSWORD`, which pgx falls back to
+for whatever the DSN leaves out. That way it stays in Secrets Manager instead of
+being baked into a connection string.
+
+`PISTA_MANAGE_ROUTINE` is set in the workflow so that functions and procedures
+are managed too; without it the triggers in `comments.sql` would point at
+functions nobody owns.
 
 ## The runner
 
