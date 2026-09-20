@@ -1,3 +1,17 @@
+resource "aws_security_group" "codebuild" {
+  name        = "gha-runner-codebuild"
+  description = "CodeBuild GitHub Actions runner"
+  vpc_id      = data.aws_vpc.sandbox.id
+}
+
+# GitHub との通信と pistachio の .deb 取得のため、外向きは全許可 (NAT Gateway 経由)
+resource "aws_vpc_security_group_egress_rule" "codebuild" {
+  security_group_id = aws_security_group.codebuild.id
+  ip_protocol       = "-1"
+  cidr_ipv4         = "0.0.0.0/0"
+  description       = "Allow all outbound"
+}
+
 resource "aws_cloudwatch_log_group" "runner" {
   name              = "/aws/codebuild/gha-runner"
   retention_in_days = 14
@@ -67,6 +81,14 @@ resource "aws_codebuild_project" "runner" {
         }
       }
     })
+  }
+
+  # RDS に届かせるために VPC に入れる。これにより GitHub 宛の通信も
+  # VPC 経由になるので、プライベートサブネットの NAT Gateway が必須。
+  vpc_config {
+    vpc_id             = data.aws_vpc.sandbox.id
+    subnets            = data.aws_subnets.private.ids
+    security_group_ids = [aws_security_group.codebuild.id]
   }
 
   logs_config {

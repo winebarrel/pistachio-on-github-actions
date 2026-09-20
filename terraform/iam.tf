@@ -61,6 +61,45 @@ data "aws_iam_policy_document" "codebuild" {
     resources = [aws_codeconnections_connection.github.arn]
   }
 
+  # VPC 内でビルドを動かすための ENI 操作。Describe 系はリソースを絞れない。
+  statement {
+    sid    = "VpcNetworkInterface"
+    effect = "Allow"
+
+    actions = [
+      "ec2:CreateNetworkInterface",
+      "ec2:DeleteNetworkInterface",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeDhcpOptions",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeVpcs",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "VpcNetworkInterfacePermission"
+    effect = "Allow"
+
+    actions = ["ec2:CreateNetworkInterfacePermission"]
+
+    resources = ["arn:aws:ec2:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:network-interface/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:AuthorizedService"
+      values   = ["codebuild.amazonaws.com"]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "ec2:Subnet"
+      values   = [for id in data.aws_subnets.private.ids : "arn:aws:ec2:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:subnet/${id}"]
+    }
+  }
+
   # PISTA_PASSWORD を Secrets Manager から解決するために必要
   statement {
     sid    = "ReadMasterUserSecret"

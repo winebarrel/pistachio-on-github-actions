@@ -1,33 +1,21 @@
-data "aws_vpc" "sandbox" {
-  filter {
-    name   = "tag:Name"
-    values = ["sandbox"]
-  }
-}
-
-data "aws_subnets" "private" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.sandbox.id]
-  }
-
-  filter {
-    name   = "tag:Name"
-    values = ["Private subnet-*"]
-  }
-}
-
 resource "aws_db_subnet_group" "postgres" {
   name       = "pistachio-demo"
   subnet_ids = data.aws_subnets.private.ids
 }
 
-# ingress は CodeBuild を VPC に入れるときに追加する。
-# 現時点ではどこからも接続できない。
 resource "aws_security_group" "postgres" {
   name        = "pistachio-demo-postgres"
   description = "pistachio demo PostgreSQL"
   vpc_id      = data.aws_vpc.sandbox.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "postgres_from_codebuild" {
+  security_group_id            = aws_security_group.postgres.id
+  referenced_security_group_id = aws_security_group.codebuild.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+  description                  = "PostgreSQL from the GitHub Actions runner"
 }
 
 resource "aws_db_instance" "postgres" {
