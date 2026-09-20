@@ -22,8 +22,9 @@ jobs:
     env:
       PISTA_MANAGE_ROUTINE: "1"
       # apply only: reject a concurrent apply against the same database
-      # (plan ignores it)
+      # (plan ignores them)
       PISTA_EXCLUSIVE: "1"
+      QREV_EXCLUSIVE: "1"
     steps:
       - uses: actions/checkout@v5
 
@@ -36,6 +37,19 @@ jobs:
           dpkg -i pistachio.deb
           pista --version
 
+      - name: Install qrev
+        env:
+          QREV_VERSION: 0.7.0
+        run: |
+          curl -sSfL --retry 3 -o qrev.deb \
+            "https://github.com/winebarrel/qrev/releases/download/v${QREV_VERSION}/qrev_${QREV_VERSION}_amd64.deb"
+          dpkg -i qrev.deb
+          qrev --version
+
+      # TODO: remove once the history table exists. init is a no-op after that.
+      - name: qrev init
+        run: qrev init
+
       - uses: winebarrel/lastcmt@v0.7.0
         if: github.event_name == 'pull_request'
 
@@ -43,22 +57,40 @@ jobs:
       # Keep the output out of tables/, which is what the glob reads.
       - name: pistachio plan
         if: github.event_name == 'pull_request'
-        run: pista plan tables/*.sql | tee "${RUNNER_TEMP}/plan.sql"
+        run: pista plan tables/*.sql | tee "${RUNNER_TEMP}/pistachio-plan.sql"
 
+      - name: qrev plan
+        if: github.event_name == 'pull_request'
+        run: qrev plan 'data/*.sql' | tee "${RUNNER_TEMP}/qrev-plan.txt"
+
+      # One comment per tool, each under its own lastcmt key so that posting
+      # one does not minimize the other.
       - name: Comment plan
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           {
+            echo '## pistachio plan'
             echo '```sql'
-            cat "${RUNNER_TEMP}/plan.sql"
+            cat "${RUNNER_TEMP}/pistachio-plan.sql"
             echo '```'
-          } | lastcmt ${{ github.event.number }}
+          } | lastcmt -k pistachio ${{ github.event.number }}
+          {
+            echo '## qrev plan'
+            echo '```'
+            cat "${RUNNER_TEMP}/qrev-plan.txt"
+            echo '```'
+          } | lastcmt -k qrev ${{ github.event.number }}
 
       - name: pistachio apply
         if: github.event_name == 'push'
-        run: pista apply tables/*.sql | tee "${RUNNER_TEMP}/apply.sql"
+        run: pista apply tables/*.sql | tee "${RUNNER_TEMP}/pistachio-apply.sql"
+
+      # Data migrations run after the schema they depend on.
+      - name: qrev apply
+        if: github.event_name == 'push'
+        run: qrev apply 'data/*.sql' | tee "${RUNNER_TEMP}/qrev-apply.txt"
 
       # Find the pull request the merge commit came from and write the result
       # there. A direct push to main has no pull request, so do nothing.
@@ -71,7 +103,14 @@ jobs:
           [ -n "$pr" ] || exit 0
           {
             echo 'merged'
+            echo
+            echo '## pistachio apply'
             echo '```sql'
-            cat "${RUNNER_TEMP}/apply.sql"
+            cat "${RUNNER_TEMP}/pistachio-apply.sql"
+            echo '```'
+            echo
+            echo '## qrev apply'
+            echo '```'
+            cat "${RUNNER_TEMP}/qrev-apply.txt"
             echo '```'
           } | gh pr comment "$pr" --body-file -
