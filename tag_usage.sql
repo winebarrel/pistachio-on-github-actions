@@ -6,4 +6,5 @@ SELECT t.id AS tag_id,
    FROM tags t
      LEFT JOIN post_tags pt ON pt.tag_id = t.id
   GROUP BY t.id, t.name;
+CREATE INDEX tag_usage_post_count_idx ON public.tag_usage USING btree (post_count DESC);
 CREATE UNIQUE INDEX tag_usage_tag_id_idx ON public.tag_usage USING btree (tag_id);
