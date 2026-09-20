@@ -46,9 +46,10 @@ jobs:
           dpkg -i qrev.deb
           qrev --version
 
-      # TODO: remove once the history table exists. init is a no-op after that.
-      - name: qrev init
-        run: qrev init
+      # The history table is already there. Kept for whoever builds this from
+      # scratch: run it once, then comment it out again.
+      # - name: qrev init
+      #   run: qrev init
 
       - uses: winebarrel/lastcmt@v0.7.0
         if: github.event_name == 'pull_request'
