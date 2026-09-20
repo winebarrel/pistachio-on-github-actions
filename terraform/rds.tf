@@ -22,7 +22,7 @@ resource "aws_db_instance" "postgres" {
   identifier = "pistachio-demo"
 
   engine = "postgres"
-  # マイナーバージョンは AWS 任せ (auto_minor_version_upgrade)
+  # Let AWS pick the minor version (auto_minor_version_upgrade)
   engine_version = "18"
   instance_class = "db.t4g.micro"
 
@@ -33,15 +33,15 @@ resource "aws_db_instance" "postgres" {
   db_name  = "pistachio"
   username = "postgres"
 
-  # パスワードは RDS が生成して Secrets Manager で管理する。
-  # tfstate にパスワードが残らない。
+  # RDS generates the password and manages it in Secrets Manager,
+  # so it never lands in the Terraform state.
   manage_master_user_password = true
 
   db_subnet_group_name   = aws_db_subnet_group.postgres.name
   vpc_security_group_ids = [aws_security_group.postgres.id]
   publicly_accessible    = false
 
-  # デモ用なので最小構成
+  # Minimal settings: this is a demo database
   backup_retention_period = 0
   skip_final_snapshot     = true
   deletion_protection     = false

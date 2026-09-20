@@ -11,8 +11,9 @@ data "aws_iam_policy_document" "assume_role" {
       identifiers = ["codebuild.amazonaws.com"]
     }
 
-    # 他アカウント経由の混乱した代理を防ぐ。
-    # プロジェクト側がこのロールを参照するので、循環参照を避けて ARN は直書き。
+    # Guard against the confused deputy problem. The ARN is written out
+    # because the project refers to this role, and referring back would
+    # make the Terraform graph circular.
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
@@ -48,7 +49,7 @@ data "aws_iam_policy_document" "codebuild" {
     ]
   }
 
-  # GitHub App 接続からトークンを受け取るために必要
+  # Needed to get a token from the GitHub App connection
   statement {
     sid    = "CodeConnections"
     effect = "Allow"
@@ -61,7 +62,8 @@ data "aws_iam_policy_document" "codebuild" {
     resources = [aws_codeconnections_connection.github.arn]
   }
 
-  # VPC 内でビルドを動かすための ENI 操作。Describe 系はリソースを絞れない。
+  # ENI handling for builds inside the VPC. The Describe actions cannot be
+  # scoped to a resource.
   statement {
     sid    = "VpcNetworkInterface"
     effect = "Allow"
@@ -100,7 +102,7 @@ data "aws_iam_policy_document" "codebuild" {
     }
   }
 
-  # PISTA_PASSWORD を Secrets Manager から解決するために必要
+  # Needed to resolve PISTA_PASSWORD from Secrets Manager
   statement {
     sid    = "ReadMasterUserSecret"
     effect = "Allow"

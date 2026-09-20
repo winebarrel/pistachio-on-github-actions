@@ -21,7 +21,8 @@ jobs:
     runs-on: codebuild-gha-runner-${{ github.run_id }}-${{ github.run_attempt }}
     env:
       PISTA_MANAGE_ROUTINE: "1"
-      # apply 専用。同じ DB に対する apply の同時実行を弾く (plan では無視される)
+      # apply only: reject a concurrent apply against the same database
+      # (plan ignores it)
       PISTA_EXCLUSIVE: "1"
     steps:
       - uses: actions/checkout@v5
@@ -38,8 +39,9 @@ jobs:
       - uses: winebarrel/lastcmt@v0.7.0
         if: github.event_name == 'pull_request'
 
-      # 接続先 (PISTA_CONN_STR / PISTA_PASSWORD) は CodeBuild プロジェクトの環境変数から渡る
-      # 出力を *.sql にすると次回以降の glob に混ざるので RUNNER_TEMP に置く
+      # PISTA_CONN_STR / PISTA_PASSWORD come from the CodeBuild project.
+      # Write the output under RUNNER_TEMP: a *.sql file in the workspace
+      # would be picked up by the glob below.
       - name: pistachio plan
         if: github.event_name == 'pull_request'
         run: pista plan *.sql | tee "${RUNNER_TEMP}/plan.sql"
@@ -59,8 +61,8 @@ jobs:
         if: github.event_name == 'push'
         run: pista apply *.sql | tee "${RUNNER_TEMP}/apply.sql"
 
-      # マージコミットから元の PR を引いて結果を書き込む。
-      # main への直接 push には PR が無いので、その場合は何もしない。
+      # Find the pull request the merge commit came from and write the result
+      # there. A direct push to main has no pull request, so do nothing.
       - name: Comment apply result
         if: github.event_name == 'push'
         env:
