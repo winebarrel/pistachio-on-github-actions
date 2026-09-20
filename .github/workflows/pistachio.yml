@@ -1,0 +1,60 @@
+name: pistachio
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+defaults:
+  run:
+    shell: bash -xeo pipefail {0}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pistachio:
+    runs-on: codebuild-gha-runner-${{ github.run_id }}-${{ github.run_attempt }}
+    env:
+      PISTA_MANAGE_ROUTINE: "1"
+      # apply 専用。同じ DB に対する apply の同時実行を弾く (plan では無視される)
+      PISTA_EXCLUSIVE: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pistachio
+        env:
+          PISTACHIO_VERSION: 1.59.0
+        run: |
+          curl -sSfL --retry 3 -o pistachio.deb \
+            "https://github.com/winebarrel/pistachio/releases/download/v${PISTACHIO_VERSION}/pistachio_${PISTACHIO_VERSION}_amd64.deb"
+          dpkg -i pistachio.deb
+          pista --version
+
+      - uses: winebarrel/lastcmt@v0.7.0
+        if: github.event_name == 'pull_request'
+
+      # 接続先 (PISTA_CONN_STR / PISTA_PASSWORD) は CodeBuild プロジェクトの環境変数から渡る
+      # 出力を *.sql にすると次回以降の glob に混ざるので RUNNER_TEMP に置く
+      - name: pistachio plan
+        if: github.event_name == 'pull_request'
+        run: pista plan *.sql | tee "${RUNNER_TEMP}/plan.sql"
+
+      - name: Comment plan
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo '```sql'
+            cat "${RUNNER_TEMP}/plan.sql"
+            echo '```'
+          } | lastcmt ${{ github.event.number }}
+
+      - name: pistachio apply
+        if: github.event_name == 'push'
+        run: pista apply *.sql
