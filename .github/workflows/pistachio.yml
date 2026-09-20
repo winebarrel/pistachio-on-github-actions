@@ -12,6 +12,10 @@ defaults:
   run:
     shell: bash -xeo pipefail {0}
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   pistachio:
     runs-on: codebuild-gha-runner-${{ github.run_id }}-${{ github.run_attempt }}
@@ -31,10 +35,25 @@ jobs:
           dpkg -i pistachio.deb
           pista --version
 
+      - uses: winebarrel/lastcmt@v0.7.0
+        if: github.event_name == 'pull_request'
+
       # 接続先 (PISTA_CONN_STR / PISTA_PASSWORD) は CodeBuild プロジェクトの環境変数から渡る
+      # 出力を *.sql にすると次回以降の glob に混ざるので RUNNER_TEMP に置く
       - name: pistachio plan
         if: github.event_name == 'pull_request'
-        run: pista plan *.sql
+        run: pista plan *.sql | tee "${RUNNER_TEMP}/plan.sql"
+
+      - name: Comment plan
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo '```sql'
+            cat "${RUNNER_TEMP}/plan.sql"
+            echo '```'
+          } | lastcmt ${{ github.event.number }}
 
       - name: pistachio apply
         if: github.event_name == 'push'
