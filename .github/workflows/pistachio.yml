@@ -21,6 +21,9 @@ jobs:
     runs-on: codebuild-gha-runner-${{ github.run_id }}-${{ github.run_attempt }}
     env:
       PISTA_MANAGE_ROUTINE: "1"
+      # qrev's history table is not part of the declared schema, so pistachio
+      # reads it as an object that should not exist.
+      PISTA_EXCLUDE: qrev_history
       # apply only: reject a concurrent apply against the same database
       # (plan ignores them)
       PISTA_EXCLUSIVE: "1"
