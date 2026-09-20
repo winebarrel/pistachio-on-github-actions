@@ -12,8 +12,7 @@ instance in its private subnets.
 
 ## How it works
 
-The schema lives in `tables/` as one SQL file per object, the layout
-`pista dump --split` writes.
+The schema lives in `tables/`, one SQL file per object.
 
 ```
 tables/
