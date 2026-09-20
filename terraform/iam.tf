@@ -61,6 +61,16 @@ data "aws_iam_policy_document" "codebuild" {
     resources = [aws_codeconnections_connection.github.arn]
   }
 
+  # PISTA_PASSWORD を Secrets Manager から解決するために必要
+  statement {
+    sid    = "ReadMasterUserSecret"
+    effect = "Allow"
+
+    actions = ["secretsmanager:GetSecretValue"]
+
+    resources = [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+  }
+
   statement {
     sid    = "CodeBuildReports"
     effect = "Allow"

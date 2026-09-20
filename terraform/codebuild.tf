@@ -37,6 +37,19 @@ resource "aws_codebuild_project" "runner" {
 
     # docker build などを動かすなら true
     privileged_mode = false
+
+    # pistachio の接続先。ランナーのジョブにそのまま環境変数として渡る。
+    environment_variable {
+      name  = "PISTA_CONN_STR"
+      value = "postgres://${aws_db_instance.postgres.username}@${aws_db_instance.postgres.endpoint}/${aws_db_instance.postgres.db_name}"
+    }
+
+    # RDS が Secrets Manager に置いたマスターパスワードを参照する
+    environment_variable {
+      name  = "PISTA_PASSWORD"
+      value = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password"
+      type  = "SECRETS_MANAGER"
+    }
   }
 
   source {
