@@ -109,23 +109,3 @@ terraform apply
   If the region already has a GitHub credential, drop the resource and use it.
 - A Terraform-managed `aws_security_group` has no egress rule unless you declare
   one, and a runner with no egress reaches neither GitHub nor RDS.
-
-## Compute
-
-Measured with a hello-world job, from job start to job end:
-
-| Compute | Image | Time |
-| --- | --- | --- |
-| `BUILD_GENERAL1_SMALL` | `amazonlinux2-x86_64-standard:5.0` | 21s |
-| `BUILD_GENERAL1_SMALL` | `standard:8.0` (current) | 20s |
-| `BUILD_LAMBDA_1GB` | `amazonlinux-x86_64-lambda-standard:nodejs24` | 10s |
-
-Lambda compute is the faster of the two, and the workspace sits under `/tmp`, so
-its "no writes outside /tmp" limit does not get in the way. It cannot be used
-here, though: it has no VPC connectivity, and this runner has to reach RDS. Its
-other limits are a 15 minute ceiling, no Docker, no caching, and runtime-specific
-images only.
-
-ARM is available as `ARM_CONTAINER` with
-`aws/codebuild/amazonlinux-aarch64-standard:4.0`. There is no Ubuntu image for
-ARM, so it cannot be combined with `standard:8.0`.
