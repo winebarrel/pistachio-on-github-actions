@@ -46,13 +46,14 @@ resource "aws_codebuild_project" "runner" {
 
     # GitHub Actions ランナーとして起動する場合、buildspec は CodeBuild 側で
     # 上書きされるため実際には使われない。プロジェクト作成に必要なので置いておく。
-    buildspec = <<-EOT
-      version: 0.2
-      phases:
-        build:
-          commands:
-            - echo "This buildspec is replaced by the GitHub Actions runner."
-    EOT
+    buildspec = yamlencode({
+      version = "0.2"
+      phases = {
+        build = {
+          commands = ["echo 'This buildspec is replaced by the GitHub Actions runner.'"]
+        }
+      }
+    })
   }
 
   logs_config {
