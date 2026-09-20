@@ -12,13 +12,13 @@ instance in its private subnets.
 
 ## How it works
 
-The schema lives at the repository root as one SQL file per object, the layout
-`pista dump --split` writes.
+The schema lives in `tables/`, one SQL file per object.
 
 ```
-users.sql  posts.sql  comments.sql  tags.sql  post_tags.sql  ...
-post_status.sql  social_links.sql  email_address.sql  post_ref_seq.sql
-set_updated_at.sql  notify_comment.sql  slugify.sql  ...
+tables/
+  users.sql  posts.sql  comments.sql  tags.sql  post_tags.sql  ...
+  post_status.sql  social_links.sql  email_address.sql  post_ref_seq.sql
+  set_updated_at.sql  notify_comment.sql  slugify.sql  ...
 ```
 
 Each table's indexes, foreign keys, triggers, RLS policies and comments live in

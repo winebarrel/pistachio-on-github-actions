@@ -40,11 +40,10 @@ jobs:
         if: github.event_name == 'pull_request'
 
       # PISTA_CONN_STR / PISTA_PASSWORD come from the CodeBuild project.
-      # Write the output under RUNNER_TEMP: a *.sql file in the workspace
-      # would be picked up by the glob below.
+      # Keep the output out of tables/, which is what the glob reads.
       - name: pistachio plan
         if: github.event_name == 'pull_request'
-        run: pista plan *.sql | tee "${RUNNER_TEMP}/plan.sql"
+        run: pista plan tables/*.sql | tee "${RUNNER_TEMP}/plan.sql"
 
       - name: Comment plan
         if: github.event_name == 'pull_request'
@@ -59,7 +58,7 @@ jobs:
 
       - name: pistachio apply
         if: github.event_name == 'push'
-        run: pista apply *.sql | tee "${RUNNER_TEMP}/apply.sql"
+        run: pista apply tables/*.sql | tee "${RUNNER_TEMP}/apply.sql"
 
       # Find the pull request the merge commit came from and write the result
       # there. A direct push to main has no pull request, so do nothing.
