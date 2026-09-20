@@ -5,6 +5,7 @@ CREATE TABLE public.users (
     display_name text NOT NULL,
     links social_links,
     avatar_url text,
+    verified boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT users_pkey PRIMARY KEY (id),
     CONSTRAINT users_email_key UNIQUE (email)
