@@ -4,7 +4,8 @@ resource "aws_security_group" "codebuild" {
   vpc_id      = data.aws_vpc.sandbox.id
 }
 
-# GitHub との通信と pistachio の .deb 取得のため、外向きは全許可 (NAT Gateway 経由)
+# Outbound is wide open, through the NAT gateway: the runner has to reach
+# GitHub and download the pistachio .deb.
 resource "aws_vpc_security_group_egress_rule" "codebuild" {
   security_group_id = aws_security_group.codebuild.id
   ip_protocol       = "-1"
@@ -17,17 +18,17 @@ resource "aws_cloudwatch_log_group" "runner" {
   retention_in_days = 14
 }
 
-# GitHub App (AWS Connector for GitHub) との接続。
-# terraform apply 直後は PENDING のままなので、コンソールの
-# Developer Tools > Settings > Connections から "Update pending connection" で
-# GitHub App のインストール/認可を手動で済ませる必要がある。
+# The GitHub App (AWS Connector for GitHub) connection.
+# It stays PENDING right after terraform apply. Finish it by hand from
+# Developer Tools > Settings > Connections in the console:
+# "Update pending connection", then install and authorize the GitHub App.
 resource "aws_codeconnections_connection" "github" {
   name          = "gha-runner"
   provider_type = "GitHub"
 }
 
-# アカウントレベルの GitHub 認証情報として CodeConnections の接続を登録する。
-# 注意: アカウント + リージョン + サーバータイプごとに 1 つしか持てない。
+# Register the connection as the account level GitHub credential.
+# Note: there can be only one per account, region and server type.
 resource "aws_codebuild_source_credential" "github" {
   auth_type   = "CODECONNECTIONS"
   server_type = "GITHUB"
@@ -49,16 +50,17 @@ resource "aws_codebuild_project" "runner" {
     image        = "aws/codebuild/standard:8.0"
     type         = "LINUX_CONTAINER"
 
-    # docker build などを動かすなら true
+    # Set to true to run docker build and the like
     privileged_mode = false
 
-    # pistachio の接続先。ランナーのジョブにそのまま環境変数として渡る。
+    # Where pistachio connects. These reach the runner job as plain
+    # environment variables, so anything the workflow runs can read them.
     environment_variable {
       name  = "PISTA_CONN_STR"
       value = "postgres://${aws_db_instance.postgres.username}@${aws_db_instance.postgres.endpoint}/${aws_db_instance.postgres.db_name}"
     }
 
-    # RDS が Secrets Manager に置いたマスターパスワードを参照する
+    # The master password RDS put in Secrets Manager
     environment_variable {
       name  = "PISTA_PASSWORD"
       value = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password"
@@ -71,8 +73,8 @@ resource "aws_codebuild_project" "runner" {
     location        = "https://github.com/winebarrel/pistachio-on-github-actions.git"
     git_clone_depth = 1
 
-    # GitHub Actions ランナーとして起動する場合、buildspec は CodeBuild 側で
-    # 上書きされるため実際には使われない。プロジェクト作成に必要なので置いておく。
+    # CodeBuild replaces this buildspec when it starts a GitHub Actions
+    # runner, so it never runs. It is here only because a project needs one.
     buildspec = yamlencode({
       version = "0.2"
       phases = {
@@ -83,8 +85,8 @@ resource "aws_codebuild_project" "runner" {
     })
   }
 
-  # RDS に届かせるために VPC に入れる。これにより GitHub 宛の通信も
-  # VPC 経由になるので、プライベートサブネットの NAT Gateway が必須。
+  # In the VPC so it can reach RDS. This also sends GitHub-bound traffic
+  # through the VPC, which is why the private subnets need a NAT gateway.
   vpc_config {
     vpc_id             = data.aws_vpc.sandbox.id
     subnets            = data.aws_subnets.private.ids
@@ -100,7 +102,7 @@ resource "aws_codebuild_project" "runner" {
   depends_on = [aws_codebuild_source_credential.github]
 }
 
-# workflow_job(queued) を受けてビルド = ランナーを起動する Webhook
+# The webhook that starts a build - that is, a runner - per queued workflow job
 resource "aws_codebuild_webhook" "runner" {
   project_name = aws_codebuild_project.runner.name
   build_type   = "BUILD"
